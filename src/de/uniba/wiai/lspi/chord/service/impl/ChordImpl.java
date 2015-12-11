@@ -153,6 +153,8 @@ public final class ChordImpl implements Chord, Report, AsynChord {
 	 * Executor service for asynch requests.
 	 */
 	private ExecutorService asyncExecutor;
+	
+	private int lastRecivedTransactionId = -1;
 
 	/**
 	 * ThreadFactory used with Executor services.
@@ -1116,7 +1118,11 @@ public final class ChordImpl implements Chord, Report, AsynChord {
 	@Override
 	public void broadcast (ID target, Boolean hit) {
 		this.logger.debug("App called broadcast");
-		
+		try {
+			this.localNode.broadcast(new Broadcast(this.getID(), this.getID(), target, this.getLastRecivedTransactionId() + 1, hit));
+		} catch (CommunicationException e) {
+			this.logger.error("Broadcast failed!", e);
+		}		
 	}
 	
 	public void setCallback (NotifyCallback callback) {
@@ -1144,6 +1150,14 @@ public final class ChordImpl implements Chord, Report, AsynChord {
 		if (this.localNode != null) {
 			this.localNode.clearCallback();
 		}
+	}
+
+	public int getLastRecivedTransactionId() {
+		return lastRecivedTransactionId;
+	}
+
+	public void setLastRecivedTransactionId(int lastRecivedTransactionId) {
+		this.lastRecivedTransactionId = lastRecivedTransactionId;
 	}
 
 }

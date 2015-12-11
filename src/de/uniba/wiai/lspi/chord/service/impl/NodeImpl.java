@@ -30,11 +30,14 @@ package de.uniba.wiai.lspi.chord.service.impl;
 import static de.uniba.wiai.lspi.util.logging.Logger.LogLevel.DEBUG;
 import static de.uniba.wiai.lspi.util.logging.Logger.LogLevel.INFO;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -95,6 +98,8 @@ public final class NodeImpl extends Node {
 	private Executor asyncExecutor;
 	
 	private Lock notifyLock; 
+	
+	private ExecutorService threadExecutor;
 
 	/**
 	 * Creates that part of the local node which answers remote requests by
@@ -136,6 +141,8 @@ public final class NodeImpl extends Node {
 		// create endpoint for incoming connections
 		this.myEndpoint = Endpoint.createEndpoint(this, nodeURL);
 		this.myEndpoint.listen();
+		
+		this.threadExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()*3);
 	}
 
 	/**
@@ -426,17 +433,43 @@ public final class NodeImpl extends Node {
 		return this.asyncExecutor;
 	}
 	
-	// TODO: implement this function in TTP
 	@Override
 	public final void broadcast(Broadcast info) throws CommunicationException {
 		if (this.logger.isEnabledFor(DEBUG)) {
 			this.logger.debug(" Send broadcast message");
 		}
-		
+		this.impl.setLastRecivedTransactionId(info.getTransaction());
+		List<Node> fingerTable = this.impl.getFingerTable();
+		Collections.sort(fingerTable);
+		Node preNode = null;
+		for(Node n:fingerTable){
+			if(n.getNodeID().isInInterval(this.getNodeID(), info.getRange())){
+				sendBroadcast(preNode, n.getNodeID(), info);
+			}else{
+				sendBroadcast(preNode, info.getRange(), info);
+				break;
+			}
+		}
 		// finally inform application
 		if (this.notifyCallback != null) {
 			this.notifyCallback.broadcast(info.getSource(), info.getTarget(), info.getHit());
 		}
 	}
-
+	
+	private void sendBroadcast(final Node n, final ID range, final Broadcast bc){
+		if(n != null){
+			Runnable broadcastRunner = new Runnable() {
+				
+				@Override
+				public void run() {
+					try {
+						n.broadcast(new Broadcast(range, bc.getSource(), bc.getTarget(), bc.getTransaction(), bc.getHit()));
+					} catch (CommunicationException e) {
+						logger.error("Broadcast to "+n.getNodeID()+" failed!", e);
+					}
+				}
+			};
+			threadExecutor.execute(broadcastRunner);	
+		}
+	}
 }
