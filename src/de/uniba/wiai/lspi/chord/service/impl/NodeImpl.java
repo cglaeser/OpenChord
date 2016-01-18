@@ -30,8 +30,10 @@ package de.uniba.wiai.lspi.chord.service.impl;
 import static de.uniba.wiai.lspi.util.logging.Logger.LogLevel.DEBUG;
 import static de.uniba.wiai.lspi.util.logging.Logger.LogLevel.INFO;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -434,7 +436,7 @@ public final class NodeImpl extends Node {
 		}
 		this.impl.setLastRecivedTransactionId(info.getTransaction());
 		List<Node> fingerTable = this.impl.getFingerTable();
-		Collections.sort(fingerTable);
+		ringSort(fingerTable);
 		Node receiverNode = null;
 		for(Node nextNode:fingerTable){
 			if(nextNode.getNodeID().isInInterval(this.getNodeID(), info.getRange())){
@@ -445,13 +447,32 @@ public final class NodeImpl extends Node {
 			receiverNode = nextNode;
 		}
 		//If last receiver was still smaller than range, then send till range
-		if(receiverNode != null && receiverNode.getNodeID().compareTo(info.getRange()) < 0){
+		if(receiverNode != null && receiverNode.getNodeID().isInInterval(this.getNodeID(), info.getRange())){
 			sendBroadcast(receiverNode, info.getRange(), info);
 		}
 		// finally inform application
 		if (this.notifyCallback != null) {
 			this.notifyCallback.broadcast(info.getSource(), info.getTarget(), info.getHit());
 		}
+	}
+	
+	/**
+	 * Sorts he table in order as that the first element is the first after this node and the last
+	 * element is the last after this node
+	 * @param table
+	 */
+	private void ringSort(List<Node> table){
+		Collections.sort(table);
+		List<Node> toAppend = new ArrayList<Node>();
+		Iterator<Node> it = table.iterator();
+		while(it.hasNext()){
+			Node n = it.next();
+			if(n.compareTo(this) < 0){
+				toAppend.add(n);
+				it.remove();
+			}
+		}
+		table.addAll(toAppend);
 	}
 	
 	private void sendBroadcast(final Node n, final ID range, final Broadcast bc){
