@@ -36,8 +36,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -98,8 +96,6 @@ public final class NodeImpl extends Node {
 	private Executor asyncExecutor;
 	
 	private Lock notifyLock; 
-	
-	private ExecutorService threadExecutor;
 
 	/**
 	 * Creates that part of the local node which answers remote requests by
@@ -141,8 +137,6 @@ public final class NodeImpl extends Node {
 		// create endpoint for incoming connections
 		this.myEndpoint = Endpoint.createEndpoint(this, nodeURL);
 		this.myEndpoint.listen();
-		
-		this.threadExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()*3);
 	}
 
 	/**
@@ -469,7 +463,7 @@ public final class NodeImpl extends Node {
 					}
 				}
 			};
-			threadExecutor.execute(broadcastRunner);	
+			asyncExecutor.execute(broadcastRunner);	
 		}
 	}
 }

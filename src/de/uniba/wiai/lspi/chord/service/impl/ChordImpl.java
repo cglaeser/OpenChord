@@ -803,6 +803,15 @@ public final class ChordImpl implements Chord, Report, AsynChord {
 		return values;
 
 	}
+	
+	public final void retrieveAsync(final ID id){
+		this.asyncExecutor.execute(new Runnable() {
+			@Override
+			public void run() {
+				retrieve(id);
+			}
+		});
+	}
 
 	// added by INET
 	public final Set<Serializable> retrieve(ID id) {
