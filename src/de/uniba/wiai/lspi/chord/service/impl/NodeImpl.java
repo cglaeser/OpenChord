@@ -435,14 +435,18 @@ public final class NodeImpl extends Node {
 		this.impl.setLastRecivedTransactionId(info.getTransaction());
 		List<Node> fingerTable = this.impl.getFingerTable();
 		Collections.sort(fingerTable);
-		Node preNode = null;
-		for(Node n:fingerTable){
-			if(n.getNodeID().isInInterval(this.getNodeID(), info.getRange())){
-				sendBroadcast(preNode, n.getNodeID(), info);
-			}else{
-				sendBroadcast(preNode, info.getRange(), info);
+		Node receiverNode = null;
+		for(Node nextNode:fingerTable){
+			if(nextNode.getNodeID().isInInterval(this.getNodeID(), info.getRange())){
+				sendBroadcast(receiverNode, nextNode.getNodeID(), info);
+			}else{//Next node is not in Range anymore, so send from receiver till range after loop.
 				break;
 			}
+			receiverNode = nextNode;
+		}
+		//If last receiver was still smaller than range, then send till range
+		if(receiverNode != null && receiverNode.getNodeID().compareTo(info.getRange()) < 0){
+			sendBroadcast(receiverNode, info.getRange(), info);
 		}
 		// finally inform application
 		if (this.notifyCallback != null) {
